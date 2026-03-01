@@ -176,6 +176,58 @@
     .form-input:focus { border-color: var(--accent); }
     .form-input::placeholder { color: var(--text3); }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .camera-input {
+      width: 100%;
+      padding: 10px;
+      border: 1px dashed var(--surface3);
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      color: var(--text2);
+    }
+    .photo-preview-wrap { margin-top: 10px; }
+    .photo-preview {
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--surface3);
+      display: block;
+    }
+    .photo-hint {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.5;
+    }
+    .camera-guide {
+      margin-top: 8px;
+      border: 1px dashed var(--accent2);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      font-size: 12px;
+      color: var(--text2);
+      background: rgba(79,195,247,0.07);
+      line-height: 1.5;
+    }
+    .camera-guide-box {
+      margin-top: 6px;
+      height: 56px;
+      border: 2px solid var(--accent2);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .camera-guide-box::before,
+    .camera-guide-box::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: rgba(79,195,247,0.6);
+    }
+    .camera-guide-box::before { left: 18%; }
+    .camera-guide-box::after { right: 18%; }
 
     .btn {
       padding: 13px 20px; border-radius: var(--radius-sm);
@@ -214,6 +266,14 @@
     .detail-label { font-size: 12px; color: var(--text2); }
     .detail-value { font-size: 15px; font-weight: 500; }
     .detail-price { font-family: var(--mono); font-size: 24px; font-weight: 500; color: var(--accent); }
+    .detail-photo-wrap { margin-top: 12px; }
+    .detail-photo {
+      width: 100%;
+      max-height: 240px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--surface3);
+    }
 
     /* Toast */
     .toast {
@@ -290,6 +350,26 @@
     <div class="form-title" id="formTitle">新しく登録する</div>
     <input type="hidden" id="editId">
 
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">カテゴリ</label>
+        <select class="form-input" id="fCatMain" onchange="onCategoryMainChange()">
+          <option value="">未選択</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">分類</label>
+        <select class="form-input" id="fCatSub" onchange="onCategorySubChange()">
+          <option value="">未選択</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">商品候補</label>
+      <select class="form-input" id="fCatItem" onchange="onCategoryItemChange()">
+        <option value="">未選択</option>
+      </select>
+    </div>
     <div class="form-group">
       <label class="form-label">品名 *</label>
       <input class="form-input" id="fName" type="text" placeholder="例：卵（Mサイズ10個）">
@@ -317,6 +397,29 @@
       <label class="form-label">メモ</label>
       <input class="form-input" id="fNote" type="text" placeholder="例：特売、曜日限定など">
     </div>
+    <details class="form-group">
+      <summary class="form-label" style="cursor:pointer">写真入力（任意）を開く</summary>
+      <div style="margin-top:8px"></div>
+      <label class="form-label">レシート写真（任意）</label>
+      <input class="camera-input" id="fPhoto" type="file" accept="image/*" capture="environment" onchange="handlePhotoChange(event)">
+      <div class="camera-guide">バーコードが枠内に入るように撮影すると読み取りしやすくなります。
+        <div class="camera-guide-box"></div>
+      </div>
+      <div class="photo-preview-wrap hidden" id="photoPreviewWrap">
+        <img id="photoPreview" class="photo-preview" alt="撮影したレシート写真のプレビュー">
+        <button class="btn btn-secondary" style="margin-top:8px" onclick="clearPhoto()" type="button">レシート写真を削除</button>
+      </div>
+      <div class="photo-hint">レシートか商品写真からバーコード（JAN）を読み取ってメモへ追加できます。</div>
+      <button class="btn btn-secondary" id="barcodeBtn" style="margin-top:8px" type="button" onclick="readBarcodeFromPhoto()">🔎 バーコード読取（無料）</button>
+    <div class="form-group">
+      <label class="form-label">商品写真（任意）</label>
+      <input class="camera-input" id="fProductPhoto" type="file" accept="image/*" capture="environment" onchange="handleProductPhotoChange(event)">
+      <div class="photo-preview-wrap hidden" id="productPhotoPreviewWrap">
+        <img id="productPhotoPreview" class="photo-preview" alt="撮影した商品写真のプレビュー">
+        <button class="btn btn-secondary" style="margin-top:8px" onclick="clearProductPhoto()" type="button">商品写真を削除</button>
+      </div>
+    </div>
+    </details>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="resetForm()">クリア</button>
       <button class="btn btn-primary" onclick="saveItem()">保存する</button>
@@ -362,6 +465,10 @@
       <span class="detail-value" id="detailUnit"></span>
     </div>
     <div class="detail-row">
+      <span class="detail-label">カテゴリ</span>
+      <span class="detail-value" id="detailCategory"></span>
+    </div>
+    <div class="detail-row">
       <span class="detail-label">店名</span>
       <span class="detail-value" id="detailShop"></span>
     </div>
@@ -372,6 +479,14 @@
     <div class="detail-row" id="detailNoteRow">
       <span class="detail-label">メモ</span>
       <span class="detail-value" id="detailNote"></span>
+    </div>
+    <div class="detail-photo-wrap hidden" id="detailPhotoWrap">
+      <div class="detail-label" style="margin-bottom:6px">商品写真</div>
+      <img class="detail-photo" id="detailPhoto" alt="登録した商品写真">
+    </div>
+    <div class="detail-photo-wrap hidden" id="detailReceiptPhotoWrap">
+      <div class="detail-label" style="margin-bottom:6px">レシート写真</div>
+      <img class="detail-photo" id="detailReceiptPhoto" alt="登録したレシート写真">
     </div>
     <div class="btn-row" style="margin-top:16px">
       <button class="btn btn-danger" onclick="deleteItem()">削除</button>
@@ -388,6 +503,66 @@
 let items = JSON.parse(localStorage.getItem('nekodene_items') || '[]');
 let currentId = null;
 let activeShopFilter = '';
+
+const CATEGORY_TREE = {
+  '肉': {
+    '豚': ['豚こま','豚バラ','豚ロース','豚肩ロース','豚ひき肉','豚しゃぶ'],
+    '牛': ['牛こま','牛バラ','牛肩ロース','牛もも','牛ひき肉','焼肉用'],
+    '鶏': ['鶏むね','鶏もも','ささみ','鶏ひき肉','手羽先','手羽元']
+  },
+  '魚介': {
+    '鮭': ['塩鮭','生鮭','鮭切り身'],
+    '青魚': ['さば','あじ','いわし'],
+    '刺身': ['まぐろ赤身','ぶり刺身','サーモン刺身'],
+    'えび・いか': ['むきえび','するめいか','冷凍シーフード']
+  },
+  '野菜': {
+    '葉物': ['キャベツ','白菜','ほうれん草','レタス'],
+    '根菜': ['玉ねぎ','じゃがいも','にんじん','大根'],
+    '果菜': ['トマト','きゅうり','ピーマン','なす'],
+    'きのこ': ['しめじ','えのき','しいたけ']
+  },
+  '果物': {
+    '定番': ['バナナ','りんご','みかん','キウイ'],
+    'カット': ['カットフルーツ','冷凍フルーツ']
+  },
+  '乳製品・卵': {
+    '牛乳': ['牛乳1L','低脂肪乳','豆乳'],
+    'ヨーグルト': ['プレーン','加糖','ギリシャヨーグルト'],
+    'チーズ': ['スライス','シュレッド','ベビーチーズ'],
+    '卵': ['卵10個','卵6個']
+  },
+  '豆腐・納豆・練物': {
+    '豆腐': ['木綿豆腐','絹豆腐','充填豆腐'],
+    '納豆': ['3P納豆','ひきわり納豆'],
+    '練物': ['ちくわ','かまぼこ','はんぺん']
+  },
+  '主食': {
+    '米・もち': ['白米5kg','無洗米5kg','切り餅'],
+    '麺': ['うどん','そば','パスタ','中華麺'],
+    'パン': ['食パン','ロールパン','菓子パン']
+  },
+  '冷凍・惣菜': {
+    '冷凍食品': ['冷凍餃子','冷凍うどん','冷凍チャーハン'],
+    '惣菜': ['唐揚げ','コロッケ','サラダ'],
+    '弁当': ['のり弁','幕の内弁当']
+  },
+  '飲料': {
+    '水・お茶': ['天然水2L','緑茶2L','麦茶2L'],
+    'コーヒー': ['缶コーヒー','インスタント','ドリップ'],
+    'ジュース': ['オレンジジュース','野菜ジュース','炭酸飲料']
+  },
+  '調味料・乾物': {
+    '基本調味料': ['しょうゆ','みそ','砂糖','塩'],
+    '油・酢': ['サラダ油','ごま油','酢'],
+    '乾物': ['海苔','わかめ','かつお節']
+  },
+  '日用品': {
+    '洗剤': ['食器用洗剤','洗濯洗剤'],
+    '紙類': ['トイレットペーパー','ティッシュ'],
+    '衛生': ['マスク','アルコール消毒']
+  }
+};
 
 function save() {
   localStorage.setItem('nekodene_items', JSON.stringify(items));
@@ -483,7 +658,9 @@ function renderList() {
       <div class="card-bottom">
         <span class="tag"><span class="tag-icon">🏪</span>${esc(item.shop)}</span>
         <span class="tag"><span class="tag-icon">📅</span>${dateStr}</span>
+        ${item.catMain ? `<span class="tag"><span class="tag-icon">🏷</span>${esc(item.catMain)}${item.catSub ? '>'+esc(item.catSub) : ''}</span>` : ''}
         ${item.note ? `<span class="tag"><span class="tag-icon">📝</span>${esc(item.note)}</span>` : ''}
+        ${item.photo || item.productPhoto ? `<span class="tag"><span class="tag-icon">📷</span>写真あり</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -501,9 +678,28 @@ function openDetail(id) {
   document.getElementById('detailName').textContent = item.name;
   document.getElementById('detailPrice').textContent = '¥' + item.price.toLocaleString();
   document.getElementById('detailUnit').textContent = item.unit || '-';
+  document.getElementById('detailCategory').textContent = [item.catMain, item.catSub, item.catItem].filter(Boolean).join(' > ') || '-';
   document.getElementById('detailShop').textContent = item.shop;
   document.getElementById('detailDate').textContent = item.date.replace(/-/g,'/');
   document.getElementById('detailNote').textContent = item.note || '-';
+  const detailPhotoWrap = document.getElementById('detailPhotoWrap');
+  const detailPhoto = document.getElementById('detailPhoto');
+  const detailReceiptPhotoWrap = document.getElementById('detailReceiptPhotoWrap');
+  const detailReceiptPhoto = document.getElementById('detailReceiptPhoto');
+  if (item.productPhoto) {
+    detailPhoto.src = item.productPhoto;
+    detailPhotoWrap.classList.remove('hidden');
+  } else {
+    detailPhoto.src = '';
+    detailPhotoWrap.classList.add('hidden');
+  }
+  if (item.photo) {
+    detailReceiptPhoto.src = item.photo;
+    detailReceiptPhotoWrap.classList.remove('hidden');
+  } else {
+    detailReceiptPhoto.src = '';
+    detailReceiptPhotoWrap.classList.add('hidden');
+  }
   document.getElementById('detailOverlay').classList.add('show');
 }
 
@@ -517,12 +713,19 @@ function editItem() {
   if (!item) return;
   document.getElementById('detailOverlay').classList.remove('show');
   document.getElementById('editId').value = item.id;
+  document.getElementById('fCatMain').value = item.catMain || '';
+  onCategoryMainChange();
+  document.getElementById('fCatSub').value = item.catSub || '';
+  onCategorySubChange();
+  document.getElementById('fCatItem').value = item.catItem || '';
   document.getElementById('fName').value = item.name;
   document.getElementById('fShop').value = item.shop;
   document.getElementById('fPrice').value = item.price;
   document.getElementById('fUnit').value = item.unit || '';
   document.getElementById('fDate').value = item.date;
   document.getElementById('fNote').value = item.note || '';
+  setPhotoPreview(item.photo || '');
+  setProductPhotoPreview(item.productPhoto || '');
   document.getElementById('formTitle').textContent = '編集する';
   showTab('add');
 }
@@ -539,13 +742,78 @@ function deleteItem() {
 // ===== FORM =====
 function resetForm() {
   document.getElementById('editId').value = '';
+  document.getElementById('fCatMain').value = '';
+  onCategoryMainChange();
   document.getElementById('fName').value = '';
   document.getElementById('fShop').value = '';
   document.getElementById('fPrice').value = '';
   document.getElementById('fUnit').value = '';
   document.getElementById('fDate').value = todayStr();
+  populateCategoryOptions();
   document.getElementById('fNote').value = '';
+  clearPhoto();
+  clearProductPhoto();
   document.getElementById('formTitle').textContent = '新しく登録する';
+}
+
+function setPhotoPreview(photoDataUrl) {
+  const wrap = document.getElementById('photoPreviewWrap');
+  const preview = document.getElementById('photoPreview');
+  if (photoDataUrl) {
+    preview.src = photoDataUrl;
+    wrap.classList.remove('hidden');
+  } else {
+    preview.src = '';
+    wrap.classList.add('hidden');
+  }
+}
+
+function handlePhotoChange(event) {
+  const file = event.target.files[0];
+  if (!file) return setPhotoPreview('');
+  if (!file.type.startsWith('image/')) {
+    showToast('画像ファイルを選択してください');
+    event.target.value = '';
+    return setPhotoPreview('');
+  }
+  const reader = new FileReader();
+  reader.onload = ev => setPhotoPreview(ev.target.result);
+  reader.readAsDataURL(file);
+}
+
+function clearPhoto() {
+  document.getElementById('fPhoto').value = '';
+  setPhotoPreview('');
+}
+
+function setProductPhotoPreview(photoDataUrl) {
+  const wrap = document.getElementById('productPhotoPreviewWrap');
+  const preview = document.getElementById('productPhotoPreview');
+  if (photoDataUrl) {
+    preview.src = photoDataUrl;
+    wrap.classList.remove('hidden');
+  } else {
+    preview.src = '';
+    wrap.classList.add('hidden');
+  }
+}
+
+function handleProductPhotoChange(event) {
+  const file = event.target.files[0];
+  if (!file) return setProductPhotoPreview('');
+  if (!file.type.startsWith('image/')) {
+    showToast('画像ファイルを選択してください');
+    event.target.value = '';
+    return setProductPhotoPreview('');
+  }
+  const reader = new FileReader();
+  reader.onload = ev => setProductPhotoPreview(ev.target.result);
+  reader.readAsDataURL(file);
+}
+
+function clearProductPhoto() {
+  document.getElementById('fProductPhoto').value = '';
+  setProductPhotoPreview('');
 }
 
 function todayStr() {
@@ -558,7 +826,75 @@ function updateShopSuggestions() {
   dl.innerHTML = shops.map(s => `<option value="${esc(s)}">`).join('');
 }
 
+
+function fillSelectOptions(selectId, list) {
+  const el = document.getElementById(selectId);
+  el.innerHTML = '<option value="">未選択</option>' + list.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+}
+
+function populateCategoryOptions() {
+  fillSelectOptions('fCatMain', Object.keys(CATEGORY_TREE));
+  onCategoryMainChange();
+}
+
+function onCategoryMainChange() {
+  const main = document.getElementById('fCatMain').value;
+  const subs = main ? Object.keys(CATEGORY_TREE[main] || {}) : [];
+  fillSelectOptions('fCatSub', subs);
+  onCategorySubChange();
+}
+
+function onCategorySubChange() {
+  const main = document.getElementById('fCatMain').value;
+  const sub = document.getElementById('fCatSub').value;
+  const items = (main && sub) ? (CATEGORY_TREE[main]?.[sub] || []) : [];
+  fillSelectOptions('fCatItem', items);
+}
+
+function onCategoryItemChange() {
+  const item = document.getElementById('fCatItem').value;
+  if (!item) return;
+  if (!document.getElementById('fName').value.trim()) {
+    document.getElementById('fName').value = item;
+  }
+}
+
+
+function appendJanToNote(rawCode) {
+  const code = String(rawCode || '').replace(/[^0-9A-Za-z-]/g, '').trim();
+  if (!code) return false;
+  const note = document.getElementById('fNote');
+  if (!note.value.includes(code)) note.value = (note.value ? note.value + ' / ' : '') + `JAN:${code}`;
+  return true;
+}
+
+async function readBarcodeFromPhoto() {
+  const photo = document.getElementById('photoPreview').src || document.getElementById('productPhotoPreview').src || '';
+  if (!photo) return showToast('先にレシート写真か商品写真を選んでください');
+  if (!('BarcodeDetector' in window)) {
+    const manual = prompt('このブラウザは自動読取に未対応です。JANコードを手入力してください（任意）');
+    if (appendJanToNote(manual)) showToast('JANコードをメモに入力しました');
+    return;
+  }
+  try {
+    const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
+    const img = new Image();
+    img.src = photo;
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+    const barcodes = await detector.detect(img);
+    if (!barcodes.length) return showToast('バーコードが見つかりませんでした');
+    const code = barcodes[0].rawValue || '';
+    if (appendJanToNote(code)) showToast('バーコードをメモに入力しました');
+  } catch (e) {
+    console.log(e);
+    showToast('バーコード読取に失敗しました');
+  }
+}
+
 function saveItem() {
+  const catMain = document.getElementById('fCatMain').value;
+  const catSub = document.getElementById('fCatSub').value;
+  const catItem = document.getElementById('fCatItem').value;
   const name = document.getElementById('fName').value.trim();
   const shop = document.getElementById('fShop').value.trim();
   const priceRaw = document.getElementById('fPrice').value;
@@ -566,6 +902,8 @@ function saveItem() {
   const unit = document.getElementById('fUnit').value.trim();
   const date = document.getElementById('fDate').value;
   const note = document.getElementById('fNote').value.trim();
+  const photo = document.getElementById('photoPreview').src || '';
+  const productPhoto = document.getElementById('productPhotoPreview').src || '';
   const editId = document.getElementById('editId').value;
 
   if (!name) return showToast('品名を入力してください');
@@ -575,10 +913,10 @@ function saveItem() {
 
   if (editId) {
     const idx = items.findIndex(i => i.id === editId);
-    if (idx >= 0) items[idx] = { id: editId, name, shop, price, unit, date, note };
+    if (idx >= 0) items[idx] = { id: editId, catMain, catSub, catItem, name, shop, price, unit, date, note, photo, productPhoto };
     showToast('更新しました ✓');
   } else {
-    items.push({ id: genId(), name, shop, price, unit, date, note });
+    items.push({ id: genId(), catMain, catSub, catItem, name, shop, price, unit, date, note, photo, productPhoto });
     showToast('登録しました ✓');
   }
 
@@ -613,7 +951,7 @@ function importData(e) {
       imported.forEach(item => {
         if (item.name && item.shop && item.price != null && item.date) {
           if (!items.find(i => i.id === item.id)) {
-            items.push({ id: item.id || genId(), name: item.name, shop: item.shop, price: Number(item.price), unit: item.unit || '', date: item.date, note: item.note || '' });
+            items.push({ id: item.id || genId(), catMain: item.catMain || '', catSub: item.catSub || '', catItem: item.catItem || '', name: item.name, shop: item.shop, price: Number(item.price), unit: item.unit || '', date: item.date, note: item.note || '', photo: item.photo || '', productPhoto: item.productPhoto || '' });
             added++;
           }
         }
@@ -651,6 +989,7 @@ function showToast(msg) {
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('fDate').value = todayStr();
+  populateCategoryOptions();
   updateShopSuggestions();
   updateCount();
   updateStats();
