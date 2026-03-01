@@ -199,15 +199,35 @@
       color: var(--text2);
       line-height: 1.5;
     }
-    .quick-card {
-      background: linear-gradient(180deg, rgba(255,143,177,0.12), rgba(255,143,177,0.04));
-      border: 1px solid rgba(255,143,177,0.35);
+    .camera-guide {
+      margin-top: 8px;
+      border: 1px dashed var(--accent2);
       border-radius: var(--radius-sm);
       padding: 10px;
-      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--text2);
+      background: rgba(79,195,247,0.07);
+      line-height: 1.5;
     }
-    .quick-title { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
-    .small-btn { padding: 10px 12px; font-size: 13px; }
+    .camera-guide-box {
+      margin-top: 6px;
+      height: 56px;
+      border: 2px solid var(--accent2);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .camera-guide-box::before,
+    .camera-guide-box::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: rgba(79,195,247,0.6);
+    }
+    .camera-guide-box::before { left: 18%; }
+    .camera-guide-box::after { right: 18%; }
 
     .btn {
       padding: 13px 20px; border-radius: var(--radius-sm);
@@ -330,20 +350,6 @@
     <div class="form-title" id="formTitle">新しく登録する</div>
     <input type="hidden" id="editId">
 
-    <div class="quick-card">
-      <div class="quick-title">🐾 まずバーコード（最短入力）</div>
-      <input class="camera-input" id="fBarcodeImage" type="file" accept="image/*" onchange="handleBarcodeImageChange(event)">
-      <div class="photo-hint">ファイル選択でも撮影画像でもOK（自動でカメラ固定しません）</div>
-      <div class="btn-row" style="margin-top:8px">
-        <button class="btn btn-secondary small-btn" type="button" onclick="readBarcodeFromAnySource()">🔎 バーコード読取</button>
-        <button class="btn btn-secondary small-btn" type="button" onclick="clearBarcodeImage()">画像クリア</button>
-      </div>
-      <div class="form-row" style="margin-top:8px">
-        <input class="form-input" id="fJanManual" type="text" placeholder="JANを手入力（任意）">
-        <button class="btn btn-secondary small-btn" type="button" onclick="applyManualJan()">JAN反映</button>
-      </div>
-    </div>
-
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">カテゴリ</label>
@@ -395,15 +401,30 @@
       <summary class="form-label" style="cursor:pointer">写真入力（任意）を開く</summary>
       <div style="margin-top:8px"></div>
       <label class="form-label">レシート写真（任意）</label>
-      <input class="camera-input" id="fPhoto" type="file" accept="image/*" onchange="handlePhotoChange(event)">
+      <div class="btn-row" style="margin-top:4px">
+        <button class="btn btn-secondary" type="button" onclick="document.getElementById('fPhotoCamera').click()">📷 カメラで撮影</button>
+        <button class="btn btn-secondary" type="button" onclick="document.getElementById('fPhotoGallery').click()">🖼 写真から選ぶ</button>
+      </div>
+      <input class="camera-input hidden" id="fPhotoCamera" type="file" accept="image/*" capture="environment" onchange="handlePhotoChange(event)">
+      <input class="camera-input hidden" id="fPhotoGallery" type="file" accept="image/*" onchange="handlePhotoChange(event)">
+      <div class="camera-guide">バーコードをこの枠イメージに合わせて撮ると認識しやすいです（※この枠はカメラアプリ画面には重なりません）。
+        <div class="camera-guide-box"></div>
+      </div>
       <div class="photo-preview-wrap hidden" id="photoPreviewWrap">
         <img id="photoPreview" class="photo-preview" alt="撮影したレシート写真のプレビュー">
         <button class="btn btn-secondary" style="margin-top:8px" onclick="clearPhoto()" type="button">レシート写真を削除</button>
       </div>
-      <div class="photo-hint">この写真もバーコード読取の候補として使えます。</div>
+      <div class="photo-hint">レシートか商品写真からバーコード（JAN）を読み取ってメモへ追加できます。</div>
+      <button class="btn btn-secondary" id="barcodeBtn" style="margin-top:8px" type="button" onclick="readBarcodeFromPhoto()">🔎 バーコード読取（無料）</button>
+    </div>
     <div class="form-group">
       <label class="form-label">商品写真（任意）</label>
-      <input class="camera-input" id="fProductPhoto" type="file" accept="image/*" onchange="handleProductPhotoChange(event)">
+      <div class="btn-row" style="margin-top:4px">
+        <button class="btn btn-secondary" type="button" onclick="document.getElementById('fProductPhotoCamera').click()">📷 カメラで撮影</button>
+        <button class="btn btn-secondary" type="button" onclick="document.getElementById('fProductPhotoGallery').click()">🖼 写真から選ぶ</button>
+      </div>
+      <input class="camera-input hidden" id="fProductPhotoCamera" type="file" accept="image/*" capture="environment" onchange="handleProductPhotoChange(event)">
+      <input class="camera-input hidden" id="fProductPhotoGallery" type="file" accept="image/*" onchange="handleProductPhotoChange(event)">
       <div class="photo-preview-wrap hidden" id="productPhotoPreviewWrap">
         <img id="productPhotoPreview" class="photo-preview" alt="撮影した商品写真のプレビュー">
         <button class="btn btn-secondary" style="margin-top:8px" onclick="clearProductPhoto()" type="button">商品写真を削除</button>
@@ -745,8 +766,6 @@ function resetForm() {
   document.getElementById('fNote').value = '';
   clearPhoto();
   clearProductPhoto();
-  clearBarcodeImage();
-  document.getElementById('fJanManual').value = '';
   document.getElementById('formTitle').textContent = '新しく登録する';
 }
 
@@ -776,7 +795,8 @@ function handlePhotoChange(event) {
 }
 
 function clearPhoto() {
-  document.getElementById('fPhoto').value = '';
+  document.getElementById('fPhotoCamera').value = '';
+  document.getElementById('fPhotoGallery').value = '';
   setPhotoPreview('');
 }
 
@@ -806,7 +826,8 @@ function handleProductPhotoChange(event) {
 }
 
 function clearProductPhoto() {
-  document.getElementById('fProductPhoto').value = '';
+  document.getElementById('fProductPhotoCamera').value = '';
+  document.getElementById('fProductPhotoGallery').value = '';
   setProductPhotoPreview('');
 }
 
@@ -853,64 +874,11 @@ function onCategoryItemChange() {
   }
 }
 
-
-function getAnyBarcodeImageSource() {
-  return document.getElementById('fBarcodeImagePreview')?.src || document.getElementById('photoPreview').src || document.getElementById('productPhotoPreview').src || '';
-}
-
-function setBarcodeImagePreview(photoDataUrl) {
-  let img = document.getElementById('fBarcodeImagePreview');
-  if (!img) {
-    img = document.createElement('img');
-    img.id = 'fBarcodeImagePreview';
-    img.className = 'photo-preview';
-    img.style.marginTop = '8px';
-    const input = document.getElementById('fBarcodeImage');
-    input.insertAdjacentElement('afterend', img);
-  }
-  img.style.display = photoDataUrl ? 'block' : 'none';
-  img.src = photoDataUrl || '';
-}
-
-function handleBarcodeImageChange(event) {
-  const file = event.target.files[0];
-  if (!file) return setBarcodeImagePreview('');
-  if (!file.type.startsWith('image/')) return showToast('画像ファイルを選択してください');
-  const reader = new FileReader();
-  reader.onload = ev => setBarcodeImagePreview(ev.target.result);
-  reader.readAsDataURL(file);
-}
-
-function clearBarcodeImage() {
-  document.getElementById('fBarcodeImage').value = '';
-  setBarcodeImagePreview('');
-}
-
-function applyManualJan() {
-  const manual = document.getElementById('fJanManual').value.trim();
-  if (appendJanToNote(manual)) {
-    showToast('JANコードをメモに入力しました');
-    document.getElementById('fJanManual').value = '';
-  } else {
-    showToast('JANコードを入力してください');
-  }
-}
-
-function appendJanToNote(rawCode) {
-  const code = String(rawCode || '').replace(/[^0-9A-Za-z-]/g, '').trim();
-  if (!code) return false;
-  const note = document.getElementById('fNote');
-  if (!note.value.includes(code)) note.value = (note.value ? note.value + ' / ' : '') + `JAN:${code}`;
-  return true;
-}
-
-async function readBarcodeFromAnySource() {
-  const photo = getAnyBarcodeImageSource();
+async function readBarcodeFromPhoto() {
+  const photo = document.getElementById('photoPreview').src || document.getElementById('productPhotoPreview').src || '';
   if (!photo) return showToast('先にレシート写真か商品写真を選んでください');
   if (!('BarcodeDetector' in window)) {
-    const manual = prompt('このブラウザは自動読取に未対応です。JANコードを手入力してください（任意）');
-    if (appendJanToNote(manual)) showToast('JANコードをメモに入力しました');
-    return;
+    return showToast('このブラウザはバーコード読取に未対応です');
   }
   try {
     const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
@@ -920,7 +888,9 @@ async function readBarcodeFromAnySource() {
     const barcodes = await detector.detect(img);
     if (!barcodes.length) return showToast('バーコードが見つかりませんでした');
     const code = barcodes[0].rawValue || '';
-    if (appendJanToNote(code)) showToast('バーコードをメモに入力しました');
+    const note = document.getElementById('fNote');
+    if (!note.value.includes(code)) note.value = (note.value ? note.value + ' / ' : '') + `JAN:${code}`;
+    showToast('バーコードをメモに入力しました');
   } catch (e) {
     console.log(e);
     showToast('バーコード読取に失敗しました');
