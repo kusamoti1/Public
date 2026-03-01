@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nekodene-v1';
+const CACHE_NAME = 'nekodene-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -23,9 +23,25 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch: cache-first for local assets, network-first for Google Fonts
+// Fetch strategy
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
+
+  // Navigation / HTML: network first (prevents stale UI after updates)
+  if (event.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname === '/') {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then(cached => cached || caches.match('./index.html')))
+    );
+    return;
+  }
 
   // Google Fonts: network first, fallback to cache
   if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) {
@@ -41,7 +57,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Local assets: cache first
+  // Other local assets: cache first
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
