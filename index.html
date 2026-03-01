@@ -199,6 +199,13 @@
       color: var(--text2);
       line-height: 1.5;
     }
+    .ai-status {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--accent2);
+      line-height: 1.4;
+      min-height: 1.2em;
+    }
 
     .btn {
       padding: 13px 20px; border-radius: var(--radius-sm);
@@ -356,6 +363,8 @@
         <button class="btn btn-secondary" style="margin-top:8px" onclick="clearPhoto()" type="button">写真を削除</button>
       </div>
       <div class="photo-hint">iPhoneではこの欄からカメラ起動して、そのまま登録に使えます。</div>
+      <button class="btn btn-secondary" id="aiFillBtn" style="margin-top:8px" type="button" onclick="autoFillFromPhoto()">🤖 写真から自動入力（無料AI）</button>
+      <div class="ai-status" id="aiStatus"></div>
     </div>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="resetForm()">クリア</button>
@@ -641,6 +650,169 @@ function updateShopSuggestions() {
   const shops = [...new Set(items.map(i => i.shop))];
   const dl = document.getElementById('shopSuggestions');
   dl.innerHTML = shops.map(s => `<option value="${esc(s)}">`).join('');
+}
+
+
+let tesseractReadyPromise = null;
+
+function setAiStatus(msg) {
+  document.getElementById('aiStatus').textContent = msg || '';
+}
+
+function normalizeTextForParse(text) {
+  return text
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[：]/g, ':')
+    .replace(/[／]/g, '/')
+    .replace(/[．]/g, '.')
+    .replace(/[，]/g, ',')
+    .replace(/[ー−―]/g, '-')
+    .replace(/\r/g, '\n');
+}
+
+function pickPrice(lines) {
+  const priority = /(合計|総合計|お買上|お支払|現計|請求|税込合計|ご利用額|合算)/;
+  const numbers = [];
+
+  lines.forEach(line => {
+    const cleaned = line.replace(/\s+/g, '');
+    const matches = cleaned.match(/(?:¥|￥)?\d{2,3}(?:,\d{3})*(?:\.\d+)?(?:円)?/g) || [];
+    matches.forEach(raw => {
+      const val = Number(raw.replace(/[¥￥円,]/g, ''));
+      if (!isNaN(val)) numbers.push({ val, priority: priority.test(cleaned) });
+    });
+  });
+
+  if (!numbers.length) return '';
+  const prioritized = numbers.filter(n => n.priority);
+  const target = (prioritized.length ? prioritized : numbers).sort((a,b)=>b.val-a.val)[0];
+  return String(Math.round(target.val));
+}
+
+function pickDate(text) {
+  const m1 = text.match(/(20\d{2})[\/\-.年]\s*(\d{1,2})[\/\-.月]\s*(\d{1,2})/);
+  if (m1) {
+    const y = m1[1];
+    const mo = m1[2].padStart(2, '0');
+    const d = m1[3].padStart(2, '0');
+    return `${y}-${mo}-${d}`;
+  }
+  const m2 = text.match(/(\d{1,2})[\/\-.](\d{1,2})/);
+  if (m2) {
+    const y = new Date().getFullYear();
+    const mo = m2[1].padStart(2, '0');
+    const d = m2[2].padStart(2, '0');
+    return `${y}-${mo}-${d}`;
+  }
+  return '';
+}
+
+function pickShop(lines) {
+  const keyword = /(店|スーパー|ストア|mart|market|ドラッグ|薬局|イオン|ライフ|西友|サミット|コープ|マルエツ|オーケー|業務スーパー)/i;
+  const candidates = lines.filter(l => l && l.length >= 2 && l.length <= 30);
+  const hit = candidates.find(l => keyword.test(l));
+  return (hit || candidates[0] || '').trim();
+}
+
+function pickItemAndUnit(lines) {
+  const ng = /(合計|小計|税込|税抜|内税|外税|値引|お釣|釣銭|レジ|担当|TEL|領収|カード|現金|クレジット|No\.|番号|日時|店)/i;
+  for (const raw of lines) {
+    let line = raw.trim();
+    if (!line || line.length < 2 || ng.test(line)) continue;
+    if (!/[ぁ-んァ-ヶ一-龯A-Za-z]/.test(line)) continue;
+    if (/^\d+[x×*]\d+/.test(line)) continue;
+    // remove trailing price/qty blocks
+    line = line.replace(/(?:¥|￥)?\d{2,3}(?:,\d{3})*(?:円)?\s*$/g, '').trim();
+    line = line.replace(/\s+\d+個.*$/g, '').trim();
+    if (!line) continue;
+
+    const unitMatch = line.match(/(\d+\s?(?:g|kg|ml|l|L|個|本|袋|枚|箱))/i);
+    const unit = unitMatch ? unitMatch[1].replace(/\s+/g, '') : '';
+    return { name: line, unit };
+  }
+  return { name: '', unit: '' };
+}
+
+function extractFieldsFromReceiptText(rawText) {
+  const text = normalizeTextForParse(rawText || '');
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const price = pickPrice(lines);
+  const date = pickDate(text);
+  const shop = pickShop(lines);
+  const item = pickItemAndUnit(lines);
+
+  const memoSrc = lines.slice(0, 8).join(' / ').slice(0, 120);
+  return {
+    name: item.name,
+    shop,
+    price,
+    unit: item.unit,
+    date,
+    note: memoSrc ? `OCR: ${memoSrc}` : ''
+  };
+}
+
+async function ensureTesseractLoaded() {
+  if (window.Tesseract) return window.Tesseract;
+  if (tesseractReadyPromise) return tesseractReadyPromise;
+
+  tesseractReadyPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    script.onload = () => resolve(window.Tesseract);
+    script.onerror = () => reject(new Error('OCRライブラリの読み込みに失敗しました'));
+    document.head.appendChild(script);
+  });
+
+  return tesseractReadyPromise;
+}
+
+function applyExtractedFields(fields) {
+  let filled = 0;
+  const map = [
+    ['fName', fields.name],
+    ['fShop', fields.shop],
+    ['fPrice', fields.price],
+    ['fUnit', fields.unit],
+    ['fDate', fields.date],
+    ['fNote', fields.note]
+  ];
+
+  map.forEach(([id, value]) => {
+    if (!value) return;
+    document.getElementById(id).value = value;
+    filled++;
+  });
+  return filled;
+}
+
+async function autoFillFromPhoto() {
+  const photo = document.getElementById('photoPreview').src || '';
+  if (!photo) return showToast('先に写真を撮影/選択してください');
+
+  const btn = document.getElementById('aiFillBtn');
+  btn.disabled = true;
+  setAiStatus('OCRを実行中です…（初回は数秒かかります）');
+
+  try {
+    const Tesseract = await ensureTesseractLoaded();
+    const result = await Tesseract.recognize(photo, 'jpn+eng');
+    const fields = extractFieldsFromReceiptText(result?.data?.text || '');
+    const filled = applyExtractedFields(fields);
+
+    if (!document.getElementById('fDate').value) {
+      document.getElementById('fDate').value = todayStr();
+    }
+
+    setAiStatus(`候補を ${filled}項目 入力しました（必要なら修正してください）`);
+    showToast(filled ? `AI入力: ${filled}項目` : '文字を読み取れませんでした');
+  } catch (e) {
+    console.log(e);
+    setAiStatus('OCRに失敗しました。明るい写真で再撮影してください。');
+    showToast('AI入力に失敗しました');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function saveItem() {
