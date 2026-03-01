@@ -13,30 +13,34 @@
 
 ## iPhoneでPWAとして使う方法
 
-### ステップ1: ファイルをサーバに置く
-PWAはhttpsまたはlocalhostで動作します。以下のいずれかの方法を使ってください。
+### まず結論（よくある質問）
+- `https://github.com/kusamoti1/Public`（リポジトリ画面）を開くだけでは、PWAとしては動きません。
+- **GitHub Pages の公開URL** を開いてください。
+  - このリポジトリなら通常は **`https://kusamoti1.github.io/Public/`** です。
 
-**方法A: GitHub Pages（無料）**
-1. GitHubアカウントを作成
-2. 新しいリポジトリを作成（publicにする）
-3. 全ファイルをアップロード
-4. Settings > Pages > Source: main branch
-5. https://ユーザー名.github.io/リポジトリ名/ にアクセス
+### ステップ1: GitHub Pages を有効化する
+1. リポジトリ `Public` を開く
+2. **Settings > Pages** を開く
+3. **Build and deployment** の Source を **Deploy from a branch** にする
+4. Branch を **main / (root)** にして Save
+5. 数十秒〜数分待って、表示された公開URL（例: `https://kusamoti1.github.io/Public/`）にアクセス
 
-**方法B: ローカルサーバ（PCとiPhoneが同じWi-Fi）**
+> 補足: 404になる場合は、反映待ちのことが多いので少し待って再読み込みしてください。
+
+### ステップ2: ホーム画面に追加
+1. iPhone の **Safari** で公開URLを開く
+2. 下の共有ボタン（□↑）をタップ
+3. **「ホーム画面に追加」** をタップ
+4. 名前を確認して「追加」
+
+これでアプリとして使えます。オフラインでも動作します。
+
+## 代替: ローカルサーバで試す（PCとiPhoneが同じWi-Fi）
 ```bash
 cd 底値メモ
 python -m http.server 8080
 ```
 iPhoneのSafariで `http://PCのIPアドレス:8080` にアクセス
-
-### ステップ2: ホーム画面に追加
-1. SafariでURLを開く
-2. 下の共有ボタン（□↑）をタップ
-3.「ホーム画面に追加」をタップ
-4. 名前を確認して「追加」
-
-これでアプリとして使えます。オフラインでも動作します。
 
 ## データについて
 - データはiPhone/ブラウザのlocalStorageに保存

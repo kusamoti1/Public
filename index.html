@@ -176,6 +176,29 @@
     .form-input:focus { border-color: var(--accent); }
     .form-input::placeholder { color: var(--text3); }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .camera-input {
+      width: 100%;
+      padding: 10px;
+      border: 1px dashed var(--surface3);
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      color: var(--text2);
+    }
+    .photo-preview-wrap { margin-top: 10px; }
+    .photo-preview {
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--surface3);
+      display: block;
+    }
+    .photo-hint {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.5;
+    }
 
     .btn {
       padding: 13px 20px; border-radius: var(--radius-sm);
@@ -214,6 +237,14 @@
     .detail-label { font-size: 12px; color: var(--text2); }
     .detail-value { font-size: 15px; font-weight: 500; }
     .detail-price { font-family: var(--mono); font-size: 24px; font-weight: 500; color: var(--accent); }
+    .detail-photo-wrap { margin-top: 12px; }
+    .detail-photo {
+      width: 100%;
+      max-height: 240px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--surface3);
+    }
 
     /* Toast */
     .toast {
@@ -317,6 +348,15 @@
       <label class="form-label">メモ</label>
       <input class="form-input" id="fNote" type="text" placeholder="例：特売、曜日限定など">
     </div>
+    <div class="form-group">
+      <label class="form-label">レシート/商品写真（任意）</label>
+      <input class="camera-input" id="fPhoto" type="file" accept="image/*" capture="environment" onchange="handlePhotoChange(event)">
+      <div class="photo-preview-wrap hidden" id="photoPreviewWrap">
+        <img id="photoPreview" class="photo-preview" alt="撮影した写真のプレビュー">
+        <button class="btn btn-secondary" style="margin-top:8px" onclick="clearPhoto()" type="button">写真を削除</button>
+      </div>
+      <div class="photo-hint">iPhoneではこの欄からカメラ起動して、そのまま登録に使えます。</div>
+    </div>
     <div class="btn-row">
       <button class="btn btn-secondary" onclick="resetForm()">クリア</button>
       <button class="btn btn-primary" onclick="saveItem()">保存する</button>
@@ -372,6 +412,9 @@
     <div class="detail-row" id="detailNoteRow">
       <span class="detail-label">メモ</span>
       <span class="detail-value" id="detailNote"></span>
+    </div>
+    <div class="detail-photo-wrap hidden" id="detailPhotoWrap">
+      <img class="detail-photo" id="detailPhoto" alt="登録した写真">
     </div>
     <div class="btn-row" style="margin-top:16px">
       <button class="btn btn-danger" onclick="deleteItem()">削除</button>
@@ -484,6 +527,7 @@ function renderList() {
         <span class="tag"><span class="tag-icon">🏪</span>${esc(item.shop)}</span>
         <span class="tag"><span class="tag-icon">📅</span>${dateStr}</span>
         ${item.note ? `<span class="tag"><span class="tag-icon">📝</span>${esc(item.note)}</span>` : ''}
+        ${item.photo ? `<span class="tag"><span class="tag-icon">📷</span>写真あり</span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -504,6 +548,15 @@ function openDetail(id) {
   document.getElementById('detailShop').textContent = item.shop;
   document.getElementById('detailDate').textContent = item.date.replace(/-/g,'/');
   document.getElementById('detailNote').textContent = item.note || '-';
+  const detailPhotoWrap = document.getElementById('detailPhotoWrap');
+  const detailPhoto = document.getElementById('detailPhoto');
+  if (item.photo) {
+    detailPhoto.src = item.photo;
+    detailPhotoWrap.classList.remove('hidden');
+  } else {
+    detailPhoto.src = '';
+    detailPhotoWrap.classList.add('hidden');
+  }
   document.getElementById('detailOverlay').classList.add('show');
 }
 
@@ -523,6 +576,7 @@ function editItem() {
   document.getElementById('fUnit').value = item.unit || '';
   document.getElementById('fDate').value = item.date;
   document.getElementById('fNote').value = item.note || '';
+  setPhotoPreview(item.photo || '');
   document.getElementById('formTitle').textContent = '編集する';
   showTab('add');
 }
@@ -545,7 +599,38 @@ function resetForm() {
   document.getElementById('fUnit').value = '';
   document.getElementById('fDate').value = todayStr();
   document.getElementById('fNote').value = '';
+  clearPhoto();
   document.getElementById('formTitle').textContent = '新しく登録する';
+}
+
+function setPhotoPreview(photoDataUrl) {
+  const wrap = document.getElementById('photoPreviewWrap');
+  const preview = document.getElementById('photoPreview');
+  if (photoDataUrl) {
+    preview.src = photoDataUrl;
+    wrap.classList.remove('hidden');
+  } else {
+    preview.src = '';
+    wrap.classList.add('hidden');
+  }
+}
+
+function handlePhotoChange(event) {
+  const file = event.target.files[0];
+  if (!file) return setPhotoPreview('');
+  if (!file.type.startsWith('image/')) {
+    showToast('画像ファイルを選択してください');
+    event.target.value = '';
+    return setPhotoPreview('');
+  }
+  const reader = new FileReader();
+  reader.onload = ev => setPhotoPreview(ev.target.result);
+  reader.readAsDataURL(file);
+}
+
+function clearPhoto() {
+  document.getElementById('fPhoto').value = '';
+  setPhotoPreview('');
 }
 
 function todayStr() {
@@ -566,6 +651,7 @@ function saveItem() {
   const unit = document.getElementById('fUnit').value.trim();
   const date = document.getElementById('fDate').value;
   const note = document.getElementById('fNote').value.trim();
+  const photo = document.getElementById('photoPreview').src || '';
   const editId = document.getElementById('editId').value;
 
   if (!name) return showToast('品名を入力してください');
@@ -575,10 +661,10 @@ function saveItem() {
 
   if (editId) {
     const idx = items.findIndex(i => i.id === editId);
-    if (idx >= 0) items[idx] = { id: editId, name, shop, price, unit, date, note };
+    if (idx >= 0) items[idx] = { id: editId, name, shop, price, unit, date, note, photo };
     showToast('更新しました ✓');
   } else {
-    items.push({ id: genId(), name, shop, price, unit, date, note });
+    items.push({ id: genId(), name, shop, price, unit, date, note, photo });
     showToast('登録しました ✓');
   }
 
@@ -613,7 +699,7 @@ function importData(e) {
       imported.forEach(item => {
         if (item.name && item.shop && item.price != null && item.date) {
           if (!items.find(i => i.id === item.id)) {
-            items.push({ id: item.id || genId(), name: item.name, shop: item.shop, price: Number(item.price), unit: item.unit || '', date: item.date, note: item.note || '' });
+            items.push({ id: item.id || genId(), name: item.name, shop: item.shop, price: Number(item.price), unit: item.unit || '', date: item.date, note: item.note || '', photo: item.photo || '' });
             added++;
           }
         }
