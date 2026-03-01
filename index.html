@@ -411,7 +411,6 @@
       </div>
       <div class="photo-hint">レシートか商品写真からバーコード（JAN）を読み取ってメモへ追加できます。</div>
       <button class="btn btn-secondary" id="barcodeBtn" style="margin-top:8px" type="button" onclick="readBarcodeFromPhoto()">🔎 バーコード読取（無料）</button>
-    </div>
     <div class="form-group">
       <label class="form-label">商品写真（任意）</label>
       <input class="camera-input" id="fProductPhoto" type="file" accept="image/*" capture="environment" onchange="handleProductPhotoChange(event)">
@@ -860,11 +859,22 @@ function onCategoryItemChange() {
   }
 }
 
+
+function appendJanToNote(rawCode) {
+  const code = String(rawCode || '').replace(/[^0-9A-Za-z-]/g, '').trim();
+  if (!code) return false;
+  const note = document.getElementById('fNote');
+  if (!note.value.includes(code)) note.value = (note.value ? note.value + ' / ' : '') + `JAN:${code}`;
+  return true;
+}
+
 async function readBarcodeFromPhoto() {
   const photo = document.getElementById('photoPreview').src || document.getElementById('productPhotoPreview').src || '';
   if (!photo) return showToast('先にレシート写真か商品写真を選んでください');
   if (!('BarcodeDetector' in window)) {
-    return showToast('このブラウザはバーコード読取に未対応です');
+    const manual = prompt('このブラウザは自動読取に未対応です。JANコードを手入力してください（任意）');
+    if (appendJanToNote(manual)) showToast('JANコードをメモに入力しました');
+    return;
   }
   try {
     const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
@@ -874,9 +884,7 @@ async function readBarcodeFromPhoto() {
     const barcodes = await detector.detect(img);
     if (!barcodes.length) return showToast('バーコードが見つかりませんでした');
     const code = barcodes[0].rawValue || '';
-    const note = document.getElementById('fNote');
-    if (!note.value.includes(code)) note.value = (note.value ? note.value + ' / ' : '') + `JAN:${code}`;
-    showToast('バーコードをメモに入力しました');
+    if (appendJanToNote(code)) showToast('バーコードをメモに入力しました');
   } catch (e) {
     console.log(e);
     showToast('バーコード読取に失敗しました');

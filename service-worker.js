@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nekodene-v5';
+const CACHE_NAME = 'nekodene-v6';
 const ASSETS = [
   './',
   './index.html',
