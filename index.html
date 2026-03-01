@@ -17,8 +17,8 @@
       --surface: #1a1a2e;
       --surface2: #252540;
       --surface3: #2e2e50;
-      --accent: #e8c547;
-      --accent2: #4fc3f7;
+      --accent: #ffcfde;
+      --accent2: #ff8fb1;
       --text: #e8e8f0;
       --text2: #9090b0;
       --text3: #5a5a80;
@@ -738,6 +738,8 @@ function editItem() {
   setPhotoPreview(item.photo || '');
   setProductPhotoPreview(item.productPhoto || '');
   document.getElementById('formTitle').textContent = '編集する';
+  document.getElementById('fJanManual').value = '';
+  clearBarcodeImage();
   showTab('add');
 }
 
